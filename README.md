@@ -88,7 +88,7 @@ See the [LICENSE](LICENSE) file for details.
 ## Additional Notes
 
 - **Hardware Integration:**  
-  The ESP32 is powered from a 5V source derived from the TP5100 charger and TPS3070 regulator. The push button on GPIO39 (with a 10kΩ resistor to ground) is used for waking the device from deep sleep.
+  The ESP32 is powered from a 3.3V source derived from the TP5100 charger and TPS3070 regulator. The push button on GPIO39 (with a 10kΩ resistor to ground) is used for waking the device from deep sleep.
   
 - **Libraries Used:**  
   - **ESP32:** WiFi, HTTPClient, ArduinoJson, Update  
