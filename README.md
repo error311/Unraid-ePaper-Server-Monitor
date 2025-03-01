@@ -42,6 +42,9 @@ All collected metrics are aggregated into a JSON file (saved to `/mnt/user/appda
 - Uses a **4.2V, 1100mAh** battery charged via a **TP5100** module
 - A push button connected to **GPIO39** (with a 10kΩ resistor to ground) wakes the ESP32 from deep sleep
 
+### Battery Monitoring Voltage
+- 27kΩ resistor from battery voltage & 100kΩ resistor from ground. These are connected to **GIO33**.
+
 ### OTA Updates
 - The ESP32 checks for firmware updates via HTTP and uses the Update library for over‑the‑air (OTA) updates
 
