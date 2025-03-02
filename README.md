@@ -78,7 +78,7 @@ All collected metrics are aggregated into a JSON file (saved to `/mnt/user/appda
 - **ESP32 Firmware:**  
   Contains the code for the ESP32, which handles fetching, parsing, and displaying the JSON data.
 
-- **Bash Script (`get_status.sh`):**  
+- **Bash Script (`json_script.sh`):**  
   Collects and formats system, Docker, and VM metrics into a JSON file.
 
 ## Branching Strategy
