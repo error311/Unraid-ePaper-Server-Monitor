@@ -44,7 +44,7 @@ All collected metrics are aggregated into a JSON file (saved to `/mnt/user/appda
 - Uses partial refreshes for efficient display updates
 
 ### Power Supply
-- Powered by a **TPS3070** buck‑boost regulator that converts battery voltage to a clean 3.3V
+- Powered by a **TPS63070** buck‑boost regulator that converts battery voltage to a clean 3.3V
 - Uses a **4.2V, 1100mAh** battery charged via a **TP5100** module
 - A push button connected to **GPIO39** (with a 10kΩ resistor to ground) wakes the ESP32 from deep sleep
 
@@ -97,7 +97,7 @@ See the [LICENSE](LICENSE) file for details.
 ## Additional Notes
 
 - **Hardware Integration:**  
-  The ESP32 is powered from a 3.3V source derived from the TP5100 charger and TPS3070 regulator. The push button on GPIO39 (with a 10kΩ resistor to ground) is used for waking the device from deep sleep.
+  The ESP32 is powered from a 3.3V source derived from the TP5100 charger and TPS63070 regulator. The push button on GPIO39 (with a 10kΩ resistor to ground) is used for waking the device from deep sleep.
   
 - **Libraries Used:**  
   - **ESP32:** WiFi, HTTPClient, ArduinoJson, Update  
