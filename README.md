@@ -2,6 +2,8 @@
 
 This project is a custom Unraid monitoring solution that uses an ESP32 paired with a 2.9″ ePaper display to present real‑time server metrics. It leverages a bash script (run as a Unraid User Script) to gather system information and Docker/VM stats, formats the data into a JSON file, and then the ESP32 fetches and displays the data.
 
+I am not affiliated with UNRAID and this is an unofficial project.
+
 ## Key Features
 
 ### Unraid System Metrics
