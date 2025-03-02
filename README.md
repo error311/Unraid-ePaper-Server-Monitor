@@ -4,6 +4,10 @@ This project is a custom Unraid monitoring solution that uses an ESP32 paired wi
 
 I am not affiliated with UNRAID and this is an unofficial project.
 
+
+https://github.com/user-attachments/assets/5fe0ccbe-fdf2-4162-a24b-4c84326a66ac
+
+
 ## Key Features
 
 ### Unraid System Metrics
