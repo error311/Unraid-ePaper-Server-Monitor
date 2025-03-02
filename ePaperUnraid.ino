@@ -5,16 +5,17 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Update.h>
+#include <ESP32Ping.h>
 
 #define FIRMWARE_URL1 "http://192.168.1.33/firmware/firmware_metadata.json"  // URL to JSON metadata file
-String current_version = "1.2.0";
+String current_version = "1.2.1";
 
 // URL for the JSON status
-const char *jsonURL = "http://192.168.1.33/firmware/status.json";
+const char *jsonURL = "http://192.168.1.33/firmware/status.json"; // update location of status.json from batch script
 
 // Deep sleep settings
 #define uS_TO_S_FACTOR 1000000   /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP 1785       // sleep 30 minutes (adjust as needed) 1785
+#define TIME_TO_SLEEP 180        // For testing, sleep 180 seconds (adjust as needed) 1785
 #define TIME_TO_SLEEP_NoWIFI 30  // Sleep only 30 seconds if no WiFi
 #define TIMEOUT_MS 30000         // 30-second inactivity timeout
 
@@ -25,9 +26,10 @@ const char *jsonURL = "http://192.168.1.33/firmware/status.json";
 
 UBYTE *partialBuffer = NULL;
 // Network credentials
-const char *ssid = "ssid";
-const char *password = "password";
+const char *ssid = "ssid"; // Enter your wifi ssid name here
+const char *password = "password"; // Enter your wifi password here
 const char *MyHostName = "UNRAIDServerMonitor";
+IPAddress unRaidHost(192, 168, 2, 101); // Enter your unraid IP here
 
 //---------------------------------------------------------------------
 // Global structures for status data
@@ -72,9 +74,11 @@ DockerStatus jellyfinStatus, jellyseerrStatus, gluetunvpnStatus, immichStatus;
 VMStatus vmStatus[3];  // Array to hold first 3 VMs
 
 
+
 // Selected server index (0 to 5)
 int selectedServer = 0;
 
+bool httpFailed = false;
 
 void wifiInit();
 void ePaperInit();
@@ -95,7 +99,8 @@ void drawServerTemplate(int selectedServer, int batteryLevel, String batLevel);
 void drawDockerContainer(const String &containerTitle, const DockerStatus &status, int startY);
 void drawUNRAID();
 void drawVM();
-
+void drawOffline(int batteryLevel, String batLevel, String nameOFFLINE);
+bool fetchStatusFromJson();
 
 
 //---------------------------------------------------------------------
@@ -209,6 +214,7 @@ bool fetchStatusFromJson() {
       Serial.print("HTTP GET failed, error code: ");
       Serial.println(httpCode);
       http.end();
+      httpFailed = true;
       delay(1000);
     }
   }
@@ -265,6 +271,39 @@ void ePaperInit() {
 }
 
 
+void drawOffline(int batteryLevel, String batLevel, String nameOFFLINE) {
+  UBYTE *BlackImage, *RYImage;
+  UWORD Imagesize = ((EPD_2IN9B_V4_WIDTH % 8 == 0) ? (EPD_2IN9B_V4_WIDTH / 8) : (EPD_2IN9B_V4_WIDTH / 8 + 1)) * EPD_2IN9B_V4_HEIGHT;
+  allocateMemoryForImages(&BlackImage, &RYImage, Imagesize);
+
+  Paint_NewImage(BlackImage, EPD_2IN9B_V4_WIDTH, EPD_2IN9B_V4_HEIGHT, 270, WHITE);
+  Paint_NewImage(RYImage, EPD_2IN9B_V4_WIDTH, EPD_2IN9B_V4_HEIGHT, 270, WHITE);
+
+  // *----------- Draw black image ------------*
+  Paint_SelectImage(BlackImage);
+  Paint_Clear(WHITE);
+  drawBatteryBlack(batteryLevel, batLevel);
+  Paint_DrawRectangle(7, 17, 290, 113, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+
+  // *----------- Draw red image ------------*
+  Paint_SelectImage(RYImage);
+  Paint_Clear(WHITE);
+
+  Paint_DrawString_EN(0, 0, (String("IP:") + WiFi.localIP().toString() + "     Server Monitor v" + current_version).c_str(), &Font12, BLACK, WHITE);
+
+  Paint_DrawString_EN(10, 50, nameOFFLINE.c_str(), &Font16, BLACK, WHITE);
+  Paint_DrawString_EN(10, 65, "IS OFFLINE!", &Font16, BLACK, WHITE);
+  drawBatteryRed(batteryLevel, batLevel);
+  EPD_2IN9B_V4_Display_Base(BlackImage, RYImage);
+  //EPD_2IN9B_V4_Display(BlackImage, RYImage);
+  DEV_Delay_ms(2000);
+  EPD_2IN9B_V4_Sleep();
+  free(BlackImage);
+  free(RYImage);
+  DEV_Delay_ms(2000);  //important, at least 2s
+  esp_deep_sleep_start();
+}
+
 void drawBatteryAndNoWifi(int batteryLevel, String batLevel) {
   UBYTE *BlackImage, *RYImage;
   UWORD Imagesize = ((EPD_2IN9B_V4_WIDTH % 8 == 0) ? (EPD_2IN9B_V4_WIDTH / 8) : (EPD_2IN9B_V4_WIDTH / 8 + 1)) * EPD_2IN9B_V4_HEIGHT;
@@ -296,6 +335,7 @@ void drawBatteryAndNoWifi(int batteryLevel, String batLevel) {
   free(BlackImage);
   free(RYImage);
   DEV_Delay_ms(2000);  //important, at least 2s
+  esp_deep_sleep_start();
 }
 
 void allocateMemoryForImages(UBYTE **BlackImage, UBYTE **RYImage, UWORD Imagesize) {
@@ -494,7 +534,7 @@ void drawDockerContainer(const String &containerTitle, const DockerStatus &statu
   // Build a label that shows total disk size and used space.
   String diskLabel = "Disk:" + formatStorage(usedGB) + "/" + formatStorage(totalGB);
   String smallLabel = formatStorage(freeGB);
-    if (diskLabel.length() > 19) {
+  if (diskLabel.length() > 19) {
     diskLabel = diskLabel.substring(0, 19);
   }
   Paint_DrawString_EN(labelX - 5, diskY - 3, diskLabel.c_str(), &Font16, WHITE, BLACK);
@@ -712,6 +752,7 @@ void drawMainServerStatus(int batteryLevel, String batLevel) {
   Serial.println("MainServerStatus complete. Going to sleep.");
   DEV_Delay_ms(2000);
   EPD_2IN9B_V4_Sleep();
+  DEV_Delay_ms(2000);
   esp_deep_sleep_start();
 }
 
@@ -862,11 +903,25 @@ void setup() {
   ePaperInit();
 
   if (WiFi.status() == WL_CONNECTED) {
+
     fetchStatusFromJson();
-    delay(500);
-    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-    // Draw the main server status with integrated selection logic.
-    drawMainServerStatus(batteryLevel, batLevel);
+    delay(1000);
+    // can't read json ping UNRAID check if online else apache must be offline
+    if (httpFailed == true) {
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_NoWIFI * uS_TO_S_FACTOR);
+      // Using the ping function directly, it returns a boolean
+      bool isReachable = Ping.ping(unRaidHost, 3);  // 3 retries
+      if (isReachable) {
+        drawOffline(batteryLevel, batLevel, "UNRAID");
+      } else {
+        drawOffline(batteryLevel, batLevel, "APACHE PHP");
+      }
+
+    } else {
+      // Draw the main server status with integrated selection logic.
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+      drawMainServerStatus(batteryLevel, batLevel);
+    }
   } else {
     esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_NoWIFI * uS_TO_S_FACTOR);
     drawBatteryAndNoWifi(batteryLevel, batLevel);
