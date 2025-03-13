@@ -7,29 +7,30 @@
 #include <Update.h>
 #include <ESP32Ping.h>
 
-#define FIRMWARE_URL1 "http://192.168.1.33/firmware/firmware_metadata.json"  // URL to JSON metadata file
-String current_version = "1.2.1";
+#define FIRMWARE_URL1 "http://192.168.2.39/uploads/firmware/firmware_metadata.json"  // URL to JSON metadata file
+String current_version = "1.2.2";
 
 // URL for the JSON status
-const char *jsonURL = "http://192.168.1.33/firmware/status.json"; // update location of status.json from batch script
+const char *jsonURL = "http://192.168.2.39/uploads/firmware/status.json";  // location of status.json from batch script
 
 // Deep sleep settings
-#define uS_TO_S_FACTOR 1000000   /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP 180        // For testing, sleep 180 seconds (adjust as needed) 1785
 #define TIME_TO_SLEEP_NoWIFI 30  // Sleep only 30 seconds if no WiFi
 #define TIMEOUT_MS 30000         // 30-second inactivity timeout
+#define uS_TO_S_FACTOR 1000000   /* Conversion factor for micro seconds to seconds */
 
 // Button configuration
 #define BUTTON_PIN 39          // Pin for button input
 #define DEBOUNCE_DELAY 50      // milliseconds
 #define DOUBLE_PRESS_TIME 500  // maximum time (ms) to detect a double press
 
-UBYTE *partialBuffer = NULL;
 // Network credentials
-const char *ssid = "ssid"; // Enter your wifi ssid name here
-const char *password = "password"; // Enter your wifi password here
+const char *ssid = "ssid";       // Enter your wifi ssid name here
+const char *password = "password";  // Enter your wifi password here
 const char *MyHostName = "UNRAIDServerMonitor";
-IPAddress unRaidHost(192, 168, 2, 101); // Enter your unraid IP here
+IPAddress unRaidHost(192, 168, 2, 101);  // Enter your unraid IP here
+
+UBYTE *partialBuffer = NULL; // Buffer for partial refresh
 
 //---------------------------------------------------------------------
 // Global structures for status data
@@ -67,13 +68,10 @@ struct VMStatus {
   String ip;
 };
 
-
-// For this example, we'll only extract the following from JSON.
+// extract the following from JSON.
 ServerStatus serverStatus;
 DockerStatus jellyfinStatus, jellyseerrStatus, gluetunvpnStatus, immichStatus;
 VMStatus vmStatus[3];  // Array to hold first 3 VMs
-
-
 
 // Selected server index (0 to 5)
 int selectedServer = 0;
@@ -101,7 +99,6 @@ void drawUNRAID();
 void drawVM();
 void drawOffline(int batteryLevel, String batLevel, String nameOFFLINE);
 bool fetchStatusFromJson();
-
 
 //---------------------------------------------------------------------
 // Function to fetch and parse status JSON
@@ -142,7 +139,6 @@ bool fetchStatusFromJson() {
       serverStatus.docker_vdisk_size = doc["server"]["docker_vdisk_size"].as<String>();
       serverStatus.ip = "192.168.1.101";
       serverStatus.name = "UNRAID";
-
 
       // Docker containers - Jellyfin
       jellyfinStatus.status = doc["jellyfin"]["status"].as<String>();
@@ -220,6 +216,7 @@ bool fetchStatusFromJson() {
   }
   return false;
 }
+
 // Helper function: Format a value in GB to a string with appropriate unit.
 String formatStorage(float valueInGB) {
   String result;
@@ -424,7 +421,6 @@ void updateSelection(int selectedServer, int batteryLevel, String batLevel) {
 
   Paint_DrawRectangle(7, 17, 290, 113, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
 
-
   // Draw time and battery in black
   drawBatteryBlack(batteryLevel, batLevel);
   drawTimeDate();
@@ -441,12 +437,8 @@ void drawDockerContainer(const String &containerTitle, const DockerStatus &statu
   int startX = 10;                         // Left margin for bars
   int labelX = startX + barMaxWidth + 10;  // X coordinate for text labels
 
-  // Draw container title (including IP) at the top
-  //String titleLine = containerTitle + " " + status.ip;
-  //Paint_DrawString_EN(startX, startY, titleLine.c_str(), &Font16, BLACK, WHITE);
-
   // --- CPU Usage Bar ---
-  String cpuStr = status.cpu;  // e.g. "0.58%"
+  String cpuStr = status.cpu;
   cpuStr.replace("%", "");
   float cpuPerc = cpuStr.toFloat();  // Percentage value (0 to 100)
   int cpuBarWidth = (int)(barMaxWidth * cpuPerc / 100.0);
@@ -555,7 +547,6 @@ void drawUNRAID() {
   String line4 = "Disk Free:" + formatStorage(diskFree);
 
   // Draw the text inside the rectangle.
-  // Adjust coordinates and font as needed for readability.
   Paint_DrawString_EN(10, 35, line1.c_str(), &Font12, BLACK, WHITE);
   Paint_DrawString_EN(10, 50, line2.c_str(), &Font16, WHITE, BLACK);
   Paint_DrawString_EN(10, 70, line3.c_str(), &Font16, WHITE, BLACK);
@@ -564,7 +555,6 @@ void drawUNRAID() {
 
 void drawVM() {
   // Build text lines with serverStatus values.
-
   String title0 = vmStatus[0].name + " " + vmStatus[0].ip;
   String vm0 = "Cores:" + vmStatus[0].cpus + ",Mem:" + vmStatus[0].max_memory_mb + "," + vmStatus[0].state;
 
@@ -575,7 +565,6 @@ void drawVM() {
   String vm2 = "Cores:" + vmStatus[2].cpus + ",Mem:" + vmStatus[2].max_memory_mb + "," + vmStatus[2].state;
 
   // Draw the text inside the rectangle.
-  // Adjust coordinates and font as needed for readability.
   Paint_DrawString_EN(10, 20, title0.c_str(), &Font16, BLACK, WHITE);
   Paint_DrawString_EN(10, 37, vm0.c_str(), &Font16, WHITE, BLACK);
 
@@ -678,7 +667,8 @@ void drawMainServerStatus(int batteryLevel, String batLevel) {
 
   Paint_SelectImage(BlackImage);
   Paint_Clear(WHITE);
-  // Draw a border box.
+
+  // Draw a black border box.
   Paint_DrawRectangle(7, 17, 290, 113, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
 
   String serverText[] = {
@@ -690,11 +680,8 @@ void drawMainServerStatus(int batteryLevel, String batLevel) {
     (vmStatus[0].state == "running" ? "Virtual Machines" : "VMs are OFFLINE")
   };
 
-  //for (int i = 0; i < 6; i++) {
-  //  Paint_DrawString_EN(10, 20 + i * 15, serverText[i], &Font16, WHITE, BLACK);
-  //}
+  // Draw black image elements
   drawServerStatusONLINE(serverText);
-  // Draw battery and time.
   drawBatteryBlack(batteryLevel, batLevel);
   drawTimeDate();
 
@@ -726,27 +713,42 @@ void drawMainServerStatus(int batteryLevel, String batLevel) {
 
   // In drawMainServerStatus(), after the base refresh:
   Serial.println("Entering selection loop. Waiting for button press...");
-
+  bool pressedButton = false;
   while (true) {
+
     unsigned long pressTime = 0;
     // waitForButtonPress() waits for a press up to TIMEOUT_MS.
     if (!waitForButtonPress(pressTime))
       break;  // deep sleep will be triggered on timeout
 
-    // Optionally: If you have a busy flag or can check the display state,
     // consider polling here until the display update is finished.
 
     if (isDoublePress(pressTime)) {
       Serial.println("Double press detected. Showing dummy template.");
+      pressedButton = true;
       drawServerTemplate(selectedServer, batteryLevel, batLevel);
       break;  // Exit loop after handling double press.
     } else {
       // Single press: increment the selection.
+      pressedButton = true;
       selectedServer = (selectedServer + 1) % 6;
       updateSelection(selectedServer, batteryLevel, batLevel);
       // Note: updateSelection() is blocking until the epaper is ready.
-      // If needed, consider reducing the update region or using an interrupt-driven approach.
+      // consider reducing the update region or using an interrupt-driven approach.
     }
+  }
+  if (pressedButton == true) {
+    // Clear the selection text before sleep
+    Paint_NewImage(partialBuffer, EPD_2IN9B_V4_WIDTH, EPD_2IN9B_V4_HEIGHT, 270, WHITE);
+    Paint_SelectImage(partialBuffer);
+    Paint_Clear(WHITE);
+    drawServerStatusONLINE(serverText);
+    drawServerStatusOFFLINE(serverText);
+    drawBatteryBlack(batteryLevel, batLevel);
+    drawTimeDate();
+    drawBatteryRed(batteryLevel, batLevel);
+    Paint_DrawRectangle(7, 17, 290, 113, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    EPD_2IN9B_V4_Display_Partial(partialBuffer, 0, 0, EPD_2IN9B_V4_WIDTH, EPD_2IN9B_V4_HEIGHT);
   }
 
   Serial.println("MainServerStatus complete. Going to sleep.");
@@ -782,39 +784,41 @@ void drawTimeDate() {
 
 void drawBatteryBlack(int batteryLevel, String batLevel) {
 
-  //draw black empty battery icon
+  // draw black empty battery icon
   Paint_DrawRectangle(7, 117, 25, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
   Paint_DrawRectangle(25, 120, 27, 123, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
 
   if (batteryLevel > 20) {
-    Paint_DrawString_EN(28, 116, batLevel.c_str(), &Font12, WHITE, BLACK);  //battery percentage readout black
+    Paint_DrawString_EN(28, 116, batLevel.c_str(), &Font12, WHITE, BLACK);  // battery percentage readout black
   }
 
   if (batteryLevel >= 90) {
-    Paint_DrawRectangle(7, 117, 25, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  //90-100%
+    Paint_DrawRectangle(7, 117, 25, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 90-100%
   } else if (batteryLevel >= 80) {
-    Paint_DrawRectangle(7, 117, 22, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  //80-90%
+    Paint_DrawRectangle(7, 117, 22, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 80-90%
   } else if (batteryLevel >= 65) {
-    Paint_DrawRectangle(7, 117, 20, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  //65-80%
+    Paint_DrawRectangle(7, 117, 20, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 65-80%
   } else if (batteryLevel >= 50) {
-    Paint_DrawRectangle(7, 117, 18, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  //50-65%
+    Paint_DrawRectangle(7, 117, 18, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 50-65%
   } else if (batteryLevel >= 40) {
-    Paint_DrawRectangle(7, 117, 16, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  //40-50%
+    Paint_DrawRectangle(7, 117, 16, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 40-50%
   } else if (batteryLevel >= 30) {
-    Paint_DrawRectangle(7, 117, 14, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  //30-40%
+    Paint_DrawRectangle(7, 117, 14, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 30-40%
   } else if (batteryLevel > 20) {
-    Paint_DrawRectangle(7, 117, 12, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  //20-30%
+    Paint_DrawRectangle(7, 117, 12, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 20-30%
   }
 }
 
 void drawBatteryRed(int batteryLevel, String batLevel) {
   if (batteryLevel <= 20) {
-    Paint_DrawString_EN(28, 116, batLevel.c_str(), &Font12, WHITE, BLACK);  //battery percentage readout red
+    Paint_DrawString_EN(28, 116, batLevel.c_str(), &Font12, WHITE, BLACK);  // battery percentage readout red
   }
   if (batteryLevel > 10 && batteryLevel <= 20) {
-    Paint_DrawRectangle(8, 117, 10, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 10-20%
+    Paint_DrawRectangle(8, 118, 11, 124, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 10-20%
+  } else if (batteryLevel == 0) {
+    Paint_DrawRectangle(8, 118, 8, 124, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 0%
   } else if (batteryLevel <= 10) {
-    Paint_DrawRectangle(8, 117, 8, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // less than 10%
+    Paint_DrawRectangle(8, 118, 9, 124, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // less than 10%
   }
 }
 
@@ -829,7 +833,7 @@ void checkForFirmwareUpdate() {
     deserializeJson(doc, payload);
     String firmware_version = doc["version"].as<String>();
     String firmware_url = doc["url"].as<String>();
-    String firmware_checksum = doc["checksum"].as<String>();  // New checksum field
+    String firmware_checksum = doc["checksum"].as<String>();
     if (firmware_version != current_version) {
       Serial.println("Updating firmware...");
       performOTAUpdate(firmware_url, firmware_checksum);
@@ -870,7 +874,7 @@ void performOTAUpdate(const String &url, const String &firmware_md5) {
         Serial.println("OTA update completed. Rebooting...");
         ESP.restart();
       } else {
-        String errStr = Update.errorString();  // Use errorString() instead of getErrorString()
+        String errStr = Update.errorString();
         if (errStr.indexOf("MD5") != -1) {
           Serial.println("MD5 checksum mismatch. OTA update failed.");
         } else {
@@ -898,25 +902,25 @@ void setup() {
   checkForFirmwareUpdate();
   analogRead(33);  // Battery voltage read
   delay(500);
-  int batteryLevel = map(analogRead(33), 1900, 4095, 0, 100);
+  int batteryLevel = map(analogRead(33), 2650, 4095, 0, 100);
+  if (batteryLevel < 0) {
+    batteryLevel = 0;
+  }
   String batLevel = String(batteryLevel) + "%";
   ePaperInit();
 
   if (WiFi.status() == WL_CONNECTED) {
-
     fetchStatusFromJson();
     delay(1000);
     // can't read json ping UNRAID check if online else apache must be offline
     if (httpFailed == true) {
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_NoWIFI * uS_TO_S_FACTOR);
-      // Using the ping function directly, it returns a boolean
       bool isReachable = Ping.ping(unRaidHost, 3);  // 3 retries
       if (isReachable) {
-        drawOffline(batteryLevel, batLevel, "UNRAID");
+        drawOffline(batteryLevel, batLevel, "UNRAID SERVER");
       } else {
-        drawOffline(batteryLevel, batLevel, "APACHE PHP");
+        drawOffline(batteryLevel, batLevel, "APACHE PHP PROBLEM OR");
       }
-
     } else {
       // Draw the main server status with integrated selection logic.
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
