@@ -7,14 +7,14 @@
 #include <Update.h>
 #include <ESP32Ping.h>
 
-#define FIRMWARE_URL1 "http://192.168.2.39/uploads/firmware/firmware_metadata.json"  // URL to JSON metadata file
+#define FIRMWARE_URL1 "http://192.168.1.39/uploads/firmware/firmware_metadata.json"  // URL to JSON metadata file
 String current_version = "1.2.2";
 
 // URL for the JSON status
-const char *jsonURL = "http://192.168.2.39/uploads/firmware/status.json";  // location of status.json from batch script
+const char *jsonURL = "http://192.168.1.39/uploads/firmware/status.json";  // location of status.json from batch script
 
 // Deep sleep settings
-#define TIME_TO_SLEEP 180        // For testing, sleep 180 seconds (adjust as needed) 1785
+#define TIME_TO_SLEEP 1785       // For testing, sleep 180 seconds (adjust as needed) 1785
 #define TIME_TO_SLEEP_NoWIFI 30  // Sleep only 30 seconds if no WiFi
 #define TIMEOUT_MS 30000         // 30-second inactivity timeout
 #define uS_TO_S_FACTOR 1000000   /* Conversion factor for micro seconds to seconds */
@@ -28,9 +28,9 @@ const char *jsonURL = "http://192.168.2.39/uploads/firmware/status.json";  // lo
 const char *ssid = "ssid";       // Enter your wifi ssid name here
 const char *password = "password";  // Enter your wifi password here
 const char *MyHostName = "UNRAIDServerMonitor";
-IPAddress unRaidHost(192, 168, 2, 101);  // Enter your unraid IP here
+IPAddress unRaidHost(192, 168, 1, 101);  // Enter your unraid IP here
 
-UBYTE *partialBuffer = NULL; // Buffer for partial refresh
+UBYTE *partialBuffer = NULL;  // Buffer for partial refresh
 
 //---------------------------------------------------------------------
 // Global structures for status data
@@ -103,11 +103,11 @@ bool fetchStatusFromJson();
 //---------------------------------------------------------------------
 // Function to fetch and parse status JSON
 bool fetchStatusFromJson() {
-  const int maxAttempts = 3;
+  const int maxAttempts = 5;
   int attempt = 0;
   bool success = false;
 
-  while (attempt < maxAttempts && !success) {
+  while (attempt <= maxAttempts && !success) {
     attempt++;
     Serial.print("Attempt ");
     Serial.print(attempt);
@@ -210,7 +210,9 @@ bool fetchStatusFromJson() {
       Serial.print("HTTP GET failed, error code: ");
       Serial.println(httpCode);
       http.end();
-      httpFailed = true;
+      if (attempt == maxAttempts) {
+        httpFailed = true;
+      }
       delay(1000);
     }
   }
@@ -814,14 +816,13 @@ void drawBatteryRed(int batteryLevel, String batLevel) {
     Paint_DrawString_EN(28, 116, batLevel.c_str(), &Font12, WHITE, BLACK);  // battery percentage readout red
   }
   if (batteryLevel > 10 && batteryLevel <= 20) {
-    Paint_DrawRectangle(8, 118, 11, 124, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 10-20%
+    Paint_DrawRectangle(8, 118, 11, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 10-20%
   } else if (batteryLevel == 0) {
-    Paint_DrawRectangle(8, 118, 8, 124, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 0%
+    Paint_DrawRectangle(8, 118, 8, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // 0%
   } else if (batteryLevel <= 10) {
-    Paint_DrawRectangle(8, 118, 9, 124, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // less than 10%
+    Paint_DrawRectangle(8, 118, 9, 125, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);  // less than 10%
   }
 }
-
 
 void checkForFirmwareUpdate() {
   HTTPClient http;
@@ -902,7 +903,7 @@ void setup() {
   checkForFirmwareUpdate();
   analogRead(33);  // Battery voltage read
   delay(500);
-  int batteryLevel = map(analogRead(33), 2650, 4095, 0, 100);
+  int batteryLevel = map(analogRead(33), 3100, 4095, 0, 100);
   if (batteryLevel < 0) {
     batteryLevel = 0;
   }
